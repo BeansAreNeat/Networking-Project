@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/file.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -9,12 +10,36 @@
 
 #define MAX_MESSAGE_SIZE 4096 // 2^12 characters
 
-void cleanup(int soc, const char *file) {
-    close(soc);
+void cleanup(int socSend, const char *file) {
+    close(socSend);
     unlink(file);
 }
 
-int main() {
+// Allows mulitple messages to be sent
+void sendMessage(const char *message) {
+    int soc;                             // socket number
+    const char *NAME = "./receiver_soc"; // name of the socket path
+    struct sockaddr_un peer;             // socket address variable
+    int n;
+
+    peer.sun_family = AF_UNIX;
+    strcpy(peer.sun_path, NAME);
+
+    soc = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (access(peer.sun_path, F_OK) > -1) {
+        n = sendto(soc, message, strlen(message), 0, (struct sockaddr *)&peer, sizeof(peer));
+
+        // check if the transmission succeeded
+        if (n < 0) {
+            fprintf(stderr, "sendto failed\n");
+            exit(1);
+        }
+        printf("Sender: %d characters sent!\n", n);
+        close(soc);
+    }
+}
+
+void receiveMessage() {
     int soc;
     char buf[MAX_MESSAGE_SIZE];
     const char *NAME = "./receiver_soc";
@@ -22,7 +47,7 @@ int main() {
     socklen_t len = sizeof(peer);
     int n;
     int time_length = 5; // Seconds until timeout
-    
+
     fd_set read_fds;
     struct timeval timeout;
 
@@ -68,5 +93,11 @@ int main() {
     printf("Datagram received = %s\n", buf);
 
     cleanup(soc, self.sun_path);
-    return 0;
+}
+
+int main() {
+    sendMessage("General Kenobi!");
+    sendMessage("You are a bold one.");
+    receiveMessage();
+    return(0);
 }
