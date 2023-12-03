@@ -10,22 +10,19 @@
 
 #define MAX_MESSAGE_SIZE 4096 // 2^12 characters
 
-void cleanup(int socRec, const char *file) {
-    close(socRec);
+void cleanup(int socSend, const char *file) {
+    close(socSend);
     unlink(file);
 }
 
 // Allows mulitple messages to be sent
-void sendMessage(const char *message) {
-    int soc;                             // socket number
-    const char *NAME = "./receiver_soc"; // name of the socket path
+void sendMessage(int soc, const char *message) {
+    const char *NAME = "./sender_soc"; // name of the socket path
     struct sockaddr_un peer;             // socket address variable
     int n;
 
     peer.sun_family = AF_UNIX;
     strcpy(peer.sun_path, NAME);
-
-    soc = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (access(peer.sun_path, F_OK) > -1) {
         n = sendto(soc, message, strlen(message), 0, (struct sockaddr *)&peer, sizeof(peer));
 
@@ -35,14 +32,12 @@ void sendMessage(const char *message) {
             exit(1);
         }
         printf("Sender: %d characters sent!\n", n);
-        close(soc);
     }
 }
 
-void receiveMessage() {
-    int soc;
+void receiveMessage(int soc) {
     char buf[MAX_MESSAGE_SIZE];
-    const char *NAME = "./receiver_soc";
+    const char *NAME = "./sender_soc";
     struct sockaddr_un self, peer;
     socklen_t len = sizeof(peer);
     int n;
@@ -53,8 +48,6 @@ void receiveMessage() {
 
     self.sun_family = AF_UNIX;
     strcpy(self.sun_path, NAME);
-
-    soc = socket(AF_UNIX, SOCK_DGRAM, 0);
 
     n = bind(soc, (const struct sockaddr *)&self, sizeof(self));
     if (n < 0) {
@@ -96,7 +89,10 @@ void receiveMessage() {
 }
 
 int main() {
-    sendMessage("Hello there!");
-    receiveMessage();
+    int soc = socket(AF_UNIX, SOCK_DGRAM, 0);
+    sendMessage(soc, "Hello there!");
+    receiveMessage(soc);
+    // Only closes socket after program ends
+    close(soc);
     return(0);
 }
